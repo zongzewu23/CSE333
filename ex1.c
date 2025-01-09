@@ -5,7 +5,7 @@
 #include <inttypes.h> // for PRId64
 #include <stdint.h> //for int64_t, int32_t
 #include <stdlib.h> // for EXIT_SUCCESS
-
+#define ARRAY_SIZE 12
 // Print out the usage of the program and exit.
 void Usage(void);
 
@@ -22,11 +22,11 @@ void printArray(int64_t array[], int32_t size);
 int main(int argc, char**argv){
   //initialize the testing array and it's sorted copy
   int64_t original[] = {3, 2, -5, 7, 17, 42, 6, 333, 7, 8, -8, 6};
-  int64_t copy[12];
+  int64_t copy[ARRAY_SIZE];
 
   //pass two arrays and the size of the array as parameters
-  CopyAndSort(original, copy, 12);
-  printArray(copy, 12);
+  CopyAndSort(original, copy, ARRAY_SIZE);
+  printArray(copy, ARRAY_SIZE);
   
   //quit
   return EXIT_SUCCESS;
