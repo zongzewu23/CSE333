@@ -4,7 +4,7 @@
 
 #include <stdio.h>  // for printf
 #include <stdlib.h>  // for EXIT_SUCCESS
-#include <stdint.h>  // for int32_t, uint8_t
+#include <stdint.h>  // for int32_t, uint8_t， uintptr_t
 #include <inttypes.h>  // for PRIx8
 
 // print the values of the bytes allocated to some variable in hex.
@@ -35,19 +35,22 @@ int main(int argc, char **argv) {
 }
 
 void PrintBytes(void* mem_addr, int num_bytes) {
-  // print the num_bytes  and the pointer mem_addr by using
-  // formatting %d and %p, notice that the format of %p include "0x"
-  printf("The %d bytes starting at %p are: ", num_bytes, mem_addr);
-  // cast the void* to a char* to access the memory byte by byte
-  char *ptr = (char*) mem_addr;
-  // use for loop to iterate for each byte in the variable
+  // Cast mem_addr to a pointer to uint8_t to access the memory byte by byte
+  uint8_t* ptr = (uint8_t*) mem_addr;
+  // Print the starting memory address in hexadecimal and the number of bytes
+  printf("The %d bytes starting at 0x%" PRIxPTR " are: ",
+      num_bytes, (uintptr_t)mem_addr);
+
+  // Use for loop to iterate through the bytes
   for (int i = 0; i < num_bytes; i++) {
-    // use marco PRIx8 to provide the correct format specifier for
-    // printing the values of type
-    // uint8_t. Also %02 means that if there is not enough two hex number,
-    // then fill the left with0
-    printf("%02" PRIx8 " ", (uint8_t)*(ptr + i));
+    // Use the macro PRIx8 to format the output for uint8_t type in hexadecimal
+    // %02 ensures two hexadecimal digits are printed.
+    // The (i > 0) ? " " : "" ensures a space is printed between bytes
+    // but not before the first byte
+    printf("%s%02" PRIx8, (i > 0) ? " " : "", *(ptr + i));
+    // (i > 0)?" ":"" from ex1 solution
   }
-  // line breaks
+  // Print a newline
   printf("\n");
 }
+
