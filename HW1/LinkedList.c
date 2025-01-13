@@ -16,6 +16,9 @@
 #include "LinkedList.h"
 #include "LinkedList_priv.h"
 
+// This static function will free the LinkedListNode that passed in
+// and subtract 1 from the list->num_elements to update meta data.
+static void free_and_subtract(LinkedList *list, LinkedListNode *node);
 
 ///////////////////////////////////////////////////////////////////////////////
 // LinkedList implementation.
@@ -41,14 +44,11 @@ void LinkedList_Free(LinkedList *list,
   // STEP 2: sweep through the list and free all of the nodes' payloads
   // (using the payload_free_function supplied as an argument) and
   // the nodes themselves.
-  LinkedListNode *lPtr = list->head;
-  int num_elements = LinkedList_NumElements(list);
-  for (int i = 0; i < num_elements; i++) {
-    LLPayload_t payload = lPtr->payload;
-    payload_free_function(payload);
-    LinkedListNode *tempPtr = lPtr->next;
-    free(lPtr);
-    lPtr = tempPtr;
+  while (list->head != NULL) {
+    payload_free_function(list->head->payload);
+    LinkedListNode *temp_ptr = list->head;
+    list->head = list->head->next;
+    free(temp_ptr);
   }
   // free the LinkedList
   free(list);
@@ -99,20 +99,18 @@ bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
   if (list->num_elements == 0) {
     return false;
   }
+
+  LinkedListNode *temp_ptr = list->head;
+  *payload_ptr = list->head->payload;
   if (list->num_elements == 1) {
-    *payload_ptr = list->head->payload;
-    free(list->head);
     list->head = list->tail = NULL;
-    list->num_elements = 0;
   } else {
-    *payload_ptr = list->head->payload;
     list->head = list->head->next;
-    free(list->head->prev);
     list->head->prev = NULL;
-    list->num_elements -= 1;
   }
 
-  return true;  // you may need to change this return value
+  free_and_subtract(list, temp_ptr);
+  return true;
 }
 
 void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
@@ -122,7 +120,7 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
   // LinkedList_Push, but obviously you need to add to the end
   // instead of the beginning.
   LinkedListNode *ln = (LinkedListNode *) malloc(sizeof(LinkedListNode));
-  ln->payload = payload;
+  ln -> payload = payload;
 
   if (list->num_elements == 0) {
     ln->next = ln->prev = NULL;
@@ -244,35 +242,43 @@ bool LLIterator_Remove(LLIterator *iter,
   // Be sure to call the payload_free_function to free the payload
   // the iterator is pointing to, and also free any LinkedList
   // data structure element as appropriate.
-  if (iter->list->num_elements == 1) {
-    payload_free_function(iter->list->head->payload);
-    free(iter->list->head);
-    iter->list->head = iter->list->tail = NULL;
-    iter->list->num_elements = 0;
+  LinkedList *list = iter->list;
+  LinkedListNode *old_node = iter->node;
+
+  if (list->num_elements == 1) {
+    payload_free_function(old_node->payload);
+    free_and_subtract(list, old_node);
+    list->head = list->tail = NULL;
     iter->node = NULL;
     return false;
   }
-  if (iter->node == iter->list->head) {
-    payload_free_function(iter->node->payload);
-    iter->node = iter->node->next;
-    iter->list->head = iter->node;
-    free(iter->node->prev);
-    iter->node->prev = NULL;
-  } else if (iter->node == iter->list->tail) {
-    payload_free_function(iter->node->payload);
-    iter->node = iter->node->prev;
-    iter->list->tail = iter->node;
-    free(iter->node->next);
-    iter->node->next = NULL;
-  } else {
-    iter->node->next->prev = iter->node->prev;
-    payload_free_function(iter->node->payload);
-    iter->node = iter->node->next;
-    free(iter->node->prev->next);
-    iter->node->prev->next = iter->node;
+
+  if (old_node == list->head) {
+    list->head = old_node->next;
+    list->head->prev = NULL;
+    iter->node = list->head;
+    payload_free_function(old_node->payload);
+    free_and_subtract(list, old_node);
+    return true;
   }
-  iter->list->num_elements -= 1;
-  return true;  // you may need to change this return value
+
+  if (old_node == list->tail) {
+    list->tail = old_node->prev;
+    list->tail->next = NULL;
+    iter->node = list->tail;
+    payload_free_function(old_node->payload);
+    free_and_subtract(list, old_node);
+    return true;
+  }
+
+  old_node->prev->next = old_node->next;
+  old_node->next->prev = old_node->prev;
+  iter->node = old_node->next;
+
+  payload_free_function(old_node->payload);
+  free_and_subtract(list, old_node);
+
+  return true;
 }
 
 
@@ -287,21 +293,26 @@ bool LLSlice(LinkedList *list, LLPayload_t *payload_ptr) {
   if (list->num_elements == 0) {
     return false;
   }
+
+  LinkedListNode *old_tail = list->tail;
+  *payload_ptr = list->tail->payload;
+
   if (list->num_elements == 1) {
-    *payload_ptr = list->tail->payload;
-    free(list->tail);
     list->tail = list->head = NULL;
-    list->num_elements = 0;
   } else {
-    *payload_ptr = list->tail->payload;
-    list->tail = list->tail->prev;
-    free(list->tail->next);
+    list->tail = old_tail->prev;
     list->tail->next = NULL;
-    list->num_elements -= 1;
   }
-  return true;  // you may need to change this return value
+
+
+  free_and_subtract(list, old_tail);
+  return true;
 }
 
 void LLIteratorRewind(LLIterator *iter) {
   iter->node = iter->list->head;
+}
+static void free_and_subtract(LinkedList *list, LinkedListNode *node) {
+  list->num_elements--;
+  free(node);
 }
