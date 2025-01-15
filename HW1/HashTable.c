@@ -13,8 +13,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include <inttypes.h>//delete!!!!!!!!!!!!!!!!!!!!!!!!
-
 #include "CSE333.h"
 #include "HashTable.h"
 #include "LinkedList.h"
@@ -39,10 +37,26 @@ int HashKeyToBucketNum(HashTable *ht, HTKey_t key) {
 static void LLNoOpFree(LLPayload_t freeme) { }
 static void HTNoOpFree(HTValue_t freeme) { }
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!DIY static functions!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// Find the target in chain(LinkedList) by key(HTkey_t)
+// Pass in a pointer to a iterator pointer so we can use this parameter as
+// a return parameter, which tells us where the iterator found the target,
+// so we can access the node and payload by using LLIterator_* functions.
+// Return false if not found and set the return parameter to be NULL.
 static bool FindInChain(LinkedList *chain, HTKey_t target_key,
-            LLIterator **return_iter);
+                        LLIterator **return_iter);
+
+// This function set the key and value of the parameter pointed to by 'return
+// parameter' to the key and value that the iter's payload's HTKeyValue_t's
+// key and value. (Deep Breath)
 static void SetReturnKV(HTKeyValue_t *keyvalue, LLIterator *iter);
-static void SetKeyValue(LLIterator *iter, HTKeyValue_t *keyvalue_ptr);
+
+// Similar to the function above but it's not setting the return parameter
+// It's setting the payload's HTKeyValue in the LinkedList node to the
+// key and value that keyvalue pointing to.
+static void SetKeyValue(LLIterator *iter, HTKeyValue_t *keyvalue);
+
 ///////////////////////////////////////////////////////////////////////////////
 // HashTable implementation.
 
@@ -142,21 +156,35 @@ bool HashTable_Insert(HashTable *table,
   // and optionally remove a key within a chain, rather than putting
   // all that logic inside here.  You might also find that your helper
   // can be reused in steps 2 and 3.
-  LLIterator *iter;
-  HTKey_t target_key = newkeyvalue.key;
 
-  HTKeyValue_t *kv_copy = (HTKeyValue_t*) malloc(sizeof(HTKeyValue_t)); //remember to free
+  // This pointer will be passed in to the FindInChain(), if FIC() returns true
+  // then it have to be freed after use, otherwise memory leak will happen.
+  // But if FIC() returns false, that means iter is just a local variable
+  // points to NULL, no need to free.
+  LLIterator *iter;
+  HTKey_t target_key = newkeyvalue.key;  // For readability
+
+  // This have to be freed after usage
+  HTKeyValue_t *kv_copy = (HTKeyValue_t*) malloc(sizeof(HTKeyValue_t));
+  // Assign key and value to the newly allocated pointer's struct
+  // The reason for this is newkeyvalue seems like a local variable
+  // in the caller.
   kv_copy->key = newkeyvalue.key;
   kv_copy->value = newkeyvalue.value;
 
   if (FindInChain(chain, target_key, &iter)) {
-    SetReturnKV(oldkeyvalue, iter);
+    SetReturnKV(oldkeyvalue, iter);  // Set up return parameter
+    // Set the key and value pointed by payload to the new key and value
     SetKeyValue(iter, kv_copy);
+
+    // The client don't have the ownership for this kv_copy, because it's
+    // never pushed on the list, so free it here
     free(kv_copy);
-    LLIterator_Free(iter);
+    LLIterator_Free(iter);  // Free the iter since the FindInChain returns true
 
     return true;
   } else {
+    // Simply push the kv_copy to the chain and the client has it's ownership
     LinkedList_Push(chain, kv_copy);
     table->num_elements++;
     return false;
@@ -169,11 +197,9 @@ bool HashTable_Find(HashTable *table,
   Verify333(table != NULL);
 
   // STEP 2: implement HashTable_Find.
-  int bucket;
-  LinkedList *chain;
-  bucket = HashKeyToBucketNum(table, key);
-  chain = table->buckets[bucket];
-  LLIterator *iter;
+  int bucket = HashKeyToBucketNum(table, key);
+  LinkedList *chain = table->buckets[bucket];
+  LLIterator *iter;  // Same as in the HashTable_Insert
 
   if (FindInChain(chain, key, &iter)) {
     SetReturnKV(keyvalue, iter);
@@ -194,6 +220,7 @@ bool HashTable_Remove(HashTable *table,
   LLIterator *iter;
 
   if (FindInChain(chain, key, &iter)) {
+    // Similar to what SetReturnKV does, except we free the payload here
     LLPayload_t payload;
 
     LLIterator_Get(iter, &payload);
@@ -202,14 +229,16 @@ bool HashTable_Remove(HashTable *table,
     keyvalue->value = ((HTKeyValue_t*) payload)->value;
 
     free(payload);
+
+    // Now we can use LLNoOpFree to free this node
     LLIterator_Remove(iter, &LLNoOpFree);
     LLIterator_Free(iter);
     table->num_elements--;
 
-    return 1;
+    return true;
   }
 
-  return 0;  // you may need to change this return value
+  return false;
 }
 
 
@@ -261,28 +290,42 @@ bool HTIterator_IsValid(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 4: implement HTIterator_IsValid.
-  return (iter->ht != NULL && iter->ht->num_elements > 0 && iter->bucket_idx != INVALID_IDX);
+  // The ht must be Not NULL, Not empty, and not passed the end
+  return (iter->ht != NULL && iter->ht->num_elements > 0
+                            && iter->bucket_idx != INVALID_IDX);
 }
 
 bool HTIterator_Next(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 5: implement HTIterator_Next.
+  // The iter has to be valid
   if (HTIterator_IsValid(iter) == false) {
     return false;
   }
+
+  // If the LL_Next returns true, implying that the current chain still have
+  // nodes to iterate, so automatically return true
+  // If false, then free the current LLIterator and find the next bucket
+  // that contains nodes and create a new LLIterator for that bucket
   if (!LLIterator_Next(iter -> bucket_it)) {
     LLIterator_Free(iter->bucket_it);
     iter -> bucket_idx++;
+
     while (iter -> bucket_idx < iter -> ht -> num_buckets) {
       if (LinkedList_NumElements(iter ->ht->buckets[iter ->bucket_idx])>0) {
+        // The nearest non-empty bucket, take its index
+        // and create a LLIterator for it
         int num = iter -> bucket_idx;
-      iter->bucket_it = LLIterator_Allocate(iter -> ht->buckets[num]);
-      return true;
+        iter->bucket_it = LLIterator_Allocate(iter -> ht->buckets[num]);
+        return true;
       } else {
-          iter -> bucket_idx++;
+        // Go to the next bucket
+        iter -> bucket_idx++;
       }
     }
+
+    // No node found, this iterator is now past the end and invalided
     iter -> bucket_it = NULL;
     iter -> bucket_idx = INVALID_IDX;
     return false;
@@ -294,11 +337,13 @@ bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
   Verify333(iter != NULL);
 
   // STEP 6: implement HTIterator_Get.
+  // Iter must be valid and ht must be not empty
   if (!HTIterator_IsValid(iter) || HashTable_NumElements(iter->ht) == 0) {
     return false;
   }
+  // Client has the ownership, So SetReturnKV works here
   SetReturnKV(keyvalue, iter->bucket_it);
-  return true;  // you may need to change this return value
+  return true;
 }
 
 bool HTIterator_Remove(HTIterator *iter, HTKeyValue_t *keyvalue) {
@@ -362,8 +407,11 @@ static void MaybeResize(HashTable *ht) {
   HashTable_Free(newht, &HTNoOpFree);
 }
 
-static bool FindInChain(LinkedList *chain, HTKey_t target_key,
-                                              LLIterator **return_iter) {
+static bool FindInChain(LinkedList *chain,
+                        HTKey_t target_key,
+                        LLIterator **return_iter) {
+  // No way to find the target, set the return parameter to be NULL
+  // so the caller doesn't have to free it
   if (LinkedList_NumElements(chain) == 0) {
     *return_iter = NULL;
     return false;
@@ -371,32 +419,44 @@ static bool FindInChain(LinkedList *chain, HTKey_t target_key,
 
   HTKeyValue_t *payload;
   LLIterator *iter = LLIterator_Allocate(chain);
+  if (iter == NULL) {
+    *return_iter = NULL;
+    return false;
+  }
 
+  // do-while is clever here so iterator won't miss the first node
   do {
     LLIterator_Get(iter, (LLPayload_t*) &payload);
     if (payload->key == target_key) {
-      *return_iter = iter;
+      *return_iter = iter;  // The caller need to free this iter.
       return true;
     }
   } while (LLIterator_Next(iter));
 
+  // Couldn't find the target, set return_iter to NULL and free the iter
   *return_iter = NULL;
   LLIterator_Free(iter);
   return false;
 }
 
-static void SetKeyValue(LLIterator *iter, HTKeyValue_t *keyvalue_ptr) {
-  HTKeyValue_t *payload = NULL;
+static void SetKeyValue(LLIterator *iter, HTKeyValue_t *keyvalue) {
+  HTKeyValue_t *payload;  // Freed by stack
+
+  // Get the pointer to the target node's payload
   LLIterator_Get(iter, (LLPayload_t*) &payload);
-  Verify333(payload != NULL);
-  payload->key = keyvalue_ptr->key;
-  payload->value = keyvalue_ptr->value;
+
+  // Set the target node's payload's key and value
+  payload->key = keyvalue->key;
+  payload->value = keyvalue->value;
 }
 
 static void SetReturnKV(HTKeyValue_t *keyvalue, LLIterator *iter ) {
-  LLPayload_t payload;
+  LLPayload_t payload;  // Freed by stack
+
+  // Get the pointer points to the kv by using return parameter
   LLIterator_Get(iter, &payload);
 
+  // Set the return parameter's kv to what iter got
   keyvalue->key = ((HTKeyValue_t*)payload)->key;
   keyvalue->value = ((HTKeyValue_t*) payload)->value;
 }

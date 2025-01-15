@@ -44,6 +44,9 @@ void LinkedList_Free(LinkedList *list,
   // STEP 2: sweep through the list and free all of the nodes' payloads
   // (using the payload_free_function supplied as an argument) and
   // the nodes themselves.
+
+  // Iterate through the entire LinkedList, release the payload of each nodes
+  // then free the nodes.
   while (list->head != NULL) {
     payload_free_function(list->head->payload);
     LinkedListNode *temp_ptr = list->head;
@@ -97,18 +100,23 @@ bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
   // Be sure to call free() to deallocate the memory that was
   // previously allocated by LinkedList_Push().
   if (list->num_elements == 0) {
-    return false;
+    return false;  // Return false if list is empty
   }
 
   LinkedListNode *temp_ptr = list->head;
+  // Assign payload(void*) to a ptr that points to payload
   *payload_ptr = list->head->payload;
   if (list->num_elements == 1) {
+    // When it's the last element, update head and tail to NULL
     list->head = list->tail = NULL;
   } else {
+    // When there is more than one elements, update the head
+    // and the updated first node's prev pointer.
     list->head = list->head->next;
     list->head->prev = NULL;
   }
-
+  // Whatever how many nodes there are, the popped node always need to be free
+  // And the num_elements need to decremented
   free_and_subtract(list, temp_ptr);
   return true;
 }
@@ -119,7 +127,10 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
   // STEP 5: implement LinkedList_Append.  It's kind of like
   // LinkedList_Push, but obviously you need to add to the end
   // instead of the beginning.
+
+  // Allocate space for the new node, and set up its payload
   LinkedListNode *ln = (LinkedListNode *) malloc(sizeof(LinkedListNode));
+  Verify333(ln != NULL);
   ln -> payload = payload;
 
   if (list->num_elements == 0) {
@@ -250,9 +261,10 @@ bool LLIterator_Remove(LLIterator *iter,
     free_and_subtract(list, old_node);
     list->head = list->tail = NULL;
     iter->node = NULL;
-    return false;
+    return false;  // The deletion succeeded, but the list is now empty.
   }
 
+  // Remove from the head
   if (old_node == list->head) {
     list->head = old_node->next;
     list->head->prev = NULL;
@@ -262,6 +274,7 @@ bool LLIterator_Remove(LLIterator *iter,
     return true;
   }
 
+  // Remove from the tail
   if (old_node == list->tail) {
     list->tail = old_node->prev;
     list->tail->next = NULL;
@@ -271,11 +284,13 @@ bool LLIterator_Remove(LLIterator *iter,
     return true;
   }
 
+  // Remove from the middle
   old_node->prev->next = old_node->next;
   old_node->next->prev = old_node->prev;
   iter->node = old_node->next;
 
   payload_free_function(old_node->payload);
+  // Free the node, No memory leak!
   free_and_subtract(list, old_node);
 
   return true;
@@ -291,10 +306,11 @@ bool LLSlice(LinkedList *list, LLPayload_t *payload_ptr) {
 
   // STEP 8: implement LLSlice.
   if (list->num_elements == 0) {
-    return false;
+    return false;  // Empty list
   }
 
   LinkedListNode *old_tail = list->tail;
+  // Assign payload(pointer) to a pl_ptr that points to payload
   *payload_ptr = list->tail->payload;
 
   if (list->num_elements == 1) {
@@ -304,8 +320,7 @@ bool LLSlice(LinkedList *list, LLPayload_t *payload_ptr) {
     list->tail->next = NULL;
   }
 
-
-  free_and_subtract(list, old_tail);
+  free_and_subtract(list, old_tail);  // Free the node, update the num_elements
   return true;
 }
 
@@ -313,6 +328,6 @@ void LLIteratorRewind(LLIterator *iter) {
   iter->node = iter->list->head;
 }
 static void free_and_subtract(LinkedList *list, LinkedListNode *node) {
-  list->num_elements--;
-  free(node);
+  list->num_elements--;  // Update num_elements
+  free(node);  // Memory leaks get away
 }
