@@ -19,7 +19,7 @@ valgrind --leak-check=full ./hello_world
 ### Run a custom Python linter
 ```
 ../cpplint.py --clint hello_world.c
-../cpplint.py --clint ex8.cc
+../cpplint.py ex8.cc
 ```
 
 ### Create and push a Git tag
