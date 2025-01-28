@@ -3,6 +3,7 @@
 ### Compile a C program
 ```
 gcc -Wall -g -std=c17 -o ex0 ex0.c
+g++ -Wall -g -std=c++17 -o ex8 ex8.cc
 ```
 
 ### Clone a Git repository
@@ -18,6 +19,7 @@ valgrind --leak-check=full ./hello_world
 ### Run a custom Python linter
 ```
 ../cpplint.py --clint hello_world.c
+../cpplint.py --clint ex8.cc
 ```
 
 ### Create and push a Git tag
