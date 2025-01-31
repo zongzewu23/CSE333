@@ -27,4 +27,8 @@ valgrind --leak-check=full ./hello_world
 git tag hw1-final
 git push --tags
 ```
+### pwd
+```
+cd /homes/iws/zongzewu/CSE333/HW/cse333-25wi-zongzewu/hw2
+```
 
