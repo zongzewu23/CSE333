@@ -66,7 +66,8 @@ static void InsertContent(HashTable *tab, char *content);
 char* ReadFileToString(const char *file_name, int *size) {
   struct stat file_stat;
   char *buf;
-  int result, fd;
+  int fd;
+  // int result; never being used
   ssize_t num_read;
   size_t left_to_read, offset = 0;
 
@@ -75,7 +76,7 @@ char* ReadFileToString(const char *file_name, int *size) {
   // properties of the file. ("man 2 stat"). You can assume we're on a 64-bit
   // system, with a 64-bit off_t field.
 
-  if(stat(file_name, &file_stat) == -1) {
+  if (stat(file_name, &file_stat) == -1) {
     perror("stat failedd");
     return NULL;
   }
@@ -118,7 +119,7 @@ char* ReadFileToString(const char *file_name, int *size) {
   // particular what the return values -1 and 0 imply.
   left_to_read = file_stat.st_size;
   while (left_to_read > 0) {
-    num_read = read(fd, buf + offset, 
+    num_read = read(fd, buf + offset,
                     left_to_read < READ_SIZE? left_to_read : READ_SIZE);
     // failed to read
     if (num_read == -1) {
@@ -234,9 +235,31 @@ static void InsertContent(HashTable *tab, char *content) {
   // Each time you find a word that you want to record in the hashtable, call
   // AddWordPosition() helper with appropriate arguments, e.g.,
   //     AddWordPosition(tab, wordstart, pos);
-
-  while (1) {
-    break;  // you may need to change this logic
+  int file_len = strlen(content);
+  char *file_end = content + file_len;
+  // keep looping until hit the file's end
+  while (cur_ptr < file_end) {
+    // if the current char is an alpha char
+    if (isalpha((unsigned char) *cur_ptr)) {
+      // to lower case anyway
+      *cur_ptr = tolower(*cur_ptr);
+      // nect char to be a non-alpha, so it's a complete string
+      if (!isalpha((unsigned char) *(cur_ptr + 1))) {
+        *(cur_ptr + 1) = '\0';  // implementation as hint
+        // add this word and it's position to the HT
+        AddWordPosition(tab, word_start,
+                    (DocPositionOffset_t) (word_start - content));
+      }
+      // go to next char
+      cur_ptr++;
+    } else {
+      // if the current char is non-alphabatic char, then word_start should
+      // go to the next char, prepareing to point to the alphabatic char
+      // but if the next char is still not alphabatic, then it will go to the
+      // next char until it's an alphabatic char or reach the end of the file.
+      word_start = cur_ptr + 1;
+      cur_ptr++;
+    }
   }  // end while-loop
 }
 
@@ -268,5 +291,32 @@ static void AddWordPosition(HashTable *tab, char *word,
     // No; this is the first time we've seen this word.  Allocate and prepare
     // a new WordPositions structure, and append the new position to its list
     // using a similar ugly hack as right above.
+    HTKeyValue_t old_kv;  // Passed in parameter, no usage, auto destroyed
+    // Passed in word is not on the heap, therefore create one on the heap
+    char *insert_word = (char*) malloc(strlen(word) + 1);
+    Verify333(insert_word != NULL);
+    // copy the passed in word to this new word on the heap
+    strncpy(insert_word, word, strlen(word) + 1);
+
+    // create a new linkedList
+    LinkedList *list = LinkedList_Allocate();
+    Verify333(list != NULL);
+
+    // append this pos, so it's ascending order
+    LinkedList_Append(list, (LLPayload_t) (int64_t) pos);
+
+    // prepare the wordPosition structure
+    wp = (WordPositions*) malloc(sizeof(WordPositions));
+    wp->word = insert_word;
+    wp->positions =  list;
+
+    // prepare the keyvalue structure
+    kv.key = hash_key;
+    kv.value = (HTValue_t) wp;
+
+    // insert kv
+    HashTable_Insert(tab, kv, &old_kv);
+    // do not need to free old_kv, because old_kv is a local variable and
+    // HT_Insert will leave old_kv as before since there is no such a key.
   }
 }

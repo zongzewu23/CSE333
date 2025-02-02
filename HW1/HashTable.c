@@ -166,6 +166,7 @@ bool HashTable_Insert(HashTable *table,
 
   // This have to be freed after usage
   HTKeyValue_t *kv_copy = (HTKeyValue_t*) malloc(sizeof(HTKeyValue_t));
+  Verify333(kv_copy != NULL);
   // Assign key and value to the newly allocated pointer's struct
   // The reason for this is newkeyvalue seems like a local variable
   // in the caller.

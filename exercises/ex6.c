@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
   FILE *fin;
 
   if (argc != 2) {
-    fprintf(stderr, "Can only read one file");
+    fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
