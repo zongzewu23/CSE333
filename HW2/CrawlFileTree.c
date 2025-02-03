@@ -96,6 +96,7 @@ bool CrawlFileTree(char *rootdir, DocTable **doctable, MemIndex **index) {
   Verify333(*index != NULL);
 
   // Begin the recursive handling of the directory.
+  printf("Root directory: %s\n", rootdir);    
   HandleDir(rootdir, rd, doctable, index);
 
   // All done.  Release and/or transfer ownership of resources.
@@ -131,7 +132,6 @@ static void HandleDir(char *dirpath, DIR *d, DocTable **doctable,
   // Change/add to this loop to use the "readdir()" system call to
   // read the directory entries in the loop ("man 3 readdir").
   // Exit out of the loop when we reach the end of the directory.
-  printf("forloopstarted");
   num_entries = 0;
   for (;;) {
   //for (i = 0 ; (dirent = readdir(d)) != NULL; i++) {
@@ -202,7 +202,6 @@ static void HandleDir(char *dirpath, DIR *d, DocTable **doctable,
     num_entries++;
   }  // end iteration over directory contents ("first pass").
 
-  printf("forloopenddddddddddddd");
   // Sort the directory's metadata alphabetically.
   //num_entries = i;
   qsort(entries, num_entries, sizeof(struct entry_st), &alphasort);
@@ -244,6 +243,12 @@ static void HandleFile(char *file_path, DocTable **doctable,
   // STEP 5.
   // Invoke DocTable_Add() to register the new file with the doctable.
 
+  printf("!\n");
+  printf("!\n");
+  printf("!\n");
+  printf("!\n");
+  printf("!\n");
+  printf("!%s\n",file_path);
   doc_id = DocTable_Add(*doctable, file_path);
 
   // Loop through the newly-built hash table.

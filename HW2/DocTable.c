@@ -72,6 +72,7 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
   // Get the Hash-value of the doc name
+  printf("DocName: %s\n", doc_name);
   HTKey_t hash_doc_name = FNVHash64((unsigned char *) doc_name,
                                       strlen(doc_name));
   if (HashTable_Find(DT_GetNameToIDTable(table),

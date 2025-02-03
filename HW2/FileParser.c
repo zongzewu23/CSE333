@@ -77,7 +77,6 @@ char* ReadFileToString(const char *file_name, int *size) {
   // system, with a 64-bit off_t field.
 
   if (stat(file_name, &file_stat) == -1) {
-    perror("stat failedd");
     return NULL;
   }
 
@@ -87,7 +86,6 @@ char* ReadFileToString(const char *file_name, int *size) {
   // could also check the bitmask as described in "man 2 stat".
 
   if (!S_ISREG(file_stat.st_mode)) {
-    perror("not a regular file");
     return NULL;
   }
 
@@ -95,7 +93,6 @@ char* ReadFileToString(const char *file_name, int *size) {
   // Attempt to open the file for reading (see also "man 2 open").
   fd = open(file_name, O_RDONLY);
   if (fd == -1) {
-    perror("open failed");
     return NULL;
   }
 
@@ -105,7 +102,6 @@ char* ReadFileToString(const char *file_name, int *size) {
 
   buf = (char*) malloc(sizeof(char)*file_stat.st_size + 1);
   if (buf == NULL) {
-    perror("failed on allocating memory");
     return NULL;
   }
 
