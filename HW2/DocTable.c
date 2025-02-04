@@ -72,21 +72,24 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
   // Get the Hash-value of the doc name
-  printf("DocName: %s\n", doc_name);
   HTKey_t hash_doc_name = FNVHash64((unsigned char *) doc_name,
                                       strlen(doc_name));
+  // Check if the document name is already in the table
   if (HashTable_Find(DT_GetNameToIDTable(table),
                                       hash_doc_name, &old_kv)) {
     return *((DocID_t*) old_kv.value);  // return DocID_t
   }
 
+  // Allocate memory and copy the document name
   doc_copy = (char*) malloc(strlen(doc_name) + 1);
   Verify333(doc_copy != NULL);
   snprintf(doc_copy, strlen(doc_name) + 1, "%s", doc_name);
   Verify333(strcmp(doc_copy, doc_name) == 0);
+  // Allocate memory for a new DocID
   doc_id = (DocID_t*) malloc(sizeof(DocID_t));
   Verify333(doc_id != NULL);
 
+  // Assign a new DocID and increment max_id for the next document
   *doc_id = table->max_id;
   table->max_id++;
 
@@ -104,6 +107,7 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // the provided code.
   kv.key = hash_doc_name;
   kv.value = (HTValue_t) doc_id;
+  // Insert the new key-value pair into the name-to-ID hash table
   HashTable_Insert(DT_GetNameToIDTable(table), kv, &old_kv);
 
   return *doc_id;
@@ -120,10 +124,12 @@ DocID_t DocTable_GetDocID(DocTable *table, char *doc_name) {
   // STEP 5.
   // Try to find the passed-in doc in name_to_id table.
   key = FNVHash64((unsigned char *) doc_name, strlen(doc_name));
+  // Look up the document name in the name-to-ID hash table
   if (HashTable_Find(DT_GetNameToIDTable(table), key, &kv)) {
-    // cast the kv.value to a pointer to DocID, then dereference it
+    // Retrieve and return the stored DocID
     res = *((DocID_t*) kv.value);
   } else {
+    // If not found, return an invalid DocID
     res = INVALID_DOCID;
   }
 
@@ -146,7 +152,7 @@ char* DocTable_GetDocName(DocTable *table, DocID_t doc_id) {
   }
 
 
-  return NULL;  // you may need to change this return value
+  return NULL;
 }
 
 HashTable* DT_GetIDToNameTable(DocTable *table) {

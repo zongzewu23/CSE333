@@ -118,17 +118,23 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t doc_id,
     //       mapping.
     //   (3) insert the the new WordPostings into the inverted index (ie, into
     //       the "index" table).
+
+    // Remember to Free!!!
     wp = (WordPostings*) malloc(sizeof(WordPostings));
     Verify333(wp != NULL);
 
+    // Store the word in the WordPostings structure
     wp->word = word;
+    // Create a new hash table for storing postings (document occurrences)
     HashTable *wp_HT = HashTable_Allocate(HASHTABLE_INITIAL_NUM_BUCKETS);
     wp->postings = wp_HT;
+
+    // Prepare key-value pair for insertion into the memindex
     mi_kv.key = key;
     mi_kv.value = (HTValue_t) wp;
-    HashTable_Insert(index, mi_kv, &unused);    
 
-
+    // insert
+    HashTable_Insert(index, mi_kv, &unused);
   } else {
     // Yes, this word already exists in the inverted index.  There's no need
     // to insert it again.
@@ -181,28 +187,38 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
   // each document that matches, allocate and initialize a SearchResult
   // structure (the initial computed rank is the number of times the word
   // appears in that document).  Finally, append the SearchResult onto ret_list.
-  key = FNVHash64((unsigned char*) query[0], strlen(query[0]));
-  if (!HashTable_Find(index, key, &kv)) {
-    return NULL;
+  key = FNVHash64((unsigned char*) query[0], strlen(query[0]));  // Get HashKey
+  if (!HashTable_Find(index, key, &kv)) {  // find the key in the memIndex HT
+    return NULL;  // Null if not find
   }
+  // word postion is the returned kv's value(HTValue_t -> wordpostion*)
   wp = kv.value;
 
+  // prepare to iterate through the postings
   HTIterator *it = HTIterator_Allocate(wp->postings);
   Verify333(it != NULL);
+  // allocate the return list
   ret_list = LinkedList_Allocate();
   Verify333(ret_list != NULL);
 
+  // Iterate through the postings hashtable
   while (HTIterator_IsValid(it)) {
+    // allocate the struct to store docId and rank(appeared times)
     SearchResult *sr = (SearchResult*) malloc(sizeof(SearchResult));
     Verify333(sr != NULL);
 
+    // use kv again to get the SR struct and get it's doc_id and rank
     HTIterator_Get(it, &kv);
     sr->doc_id = (DocID_t)kv.key;
     sr->rank = LinkedList_NumElements((LinkedList*) kv.value);
+    // append this sr to the back of the ret_list
     LinkedList_Append(ret_list, (LLPayload_t) sr);
 
+    // Iterate to the next
     HTIterator_Next(it);
   }
+
+  // lucky, didn't forget to release this iterator
   HTIterator_Free(it);
 
 
@@ -245,18 +261,22 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
     ll_it = LLIterator_Allocate(ret_list);
     Verify333(ll_it != NULL);
     num_docs = LinkedList_NumElements(ret_list);
-    wp = kv.value;
+    wp = kv.value;  // have to assign the kv.value here, cause kv is changing
     for (j = 0; j < num_docs; j++) {
       SearchResult *sr;
       LLIterator_Get(ll_it, (LLPayload_t*) &sr);
 
       if (HashTable_Find(wp->postings, (HTKey_t) sr->doc_id, &kv)) {
+        // cumulate the rank
         sr->rank += LinkedList_NumElements((LinkedList*) kv.value);
+        // go to the next sr
         LLIterator_Next(ll_it);
       } else {
+        // no need to call iterator_Next here cause the remove kinda does that
         LLIterator_Remove(ll_it, &free);
       }
     }
+    // lucky I realse
     LLIterator_Free(ll_it);
 
     // We've finished processing this current query word.  If there are no

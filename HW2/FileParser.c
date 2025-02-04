@@ -113,12 +113,17 @@ char* ReadFileToString(const char *file_name, int *size) {
   // read() inside a while loop, looping until you've read to the end of file
   // or a non-recoverable error.  Read the man page for read() carefully, in
   // particular what the return values -1 and 0 imply.
+
+  // Initialize the remaining bytes to read as the total file size
   left_to_read = file_stat.st_size;
   while (left_to_read > 0) {
+    // Read up to READ_SIZE bytes or the remaining bytes, whichever is smaller
     num_read = read(fd, buf + offset,
                     left_to_read < READ_SIZE? left_to_read : READ_SIZE);
     // failed to read
     if (num_read == -1) {
+      // If the error is not an interrupt (EINTR)
+      // or resource temporarily unavailable (EAGAIN), handle the failure
       if (errno != EINTR && errno != EAGAIN) {
         close(fd);
         free(buf);
@@ -127,6 +132,7 @@ char* ReadFileToString(const char *file_name, int *size) {
       }
       continue;  // read again
     }
+    // EOF
     if (num_read == 0) {
       break;
     }
