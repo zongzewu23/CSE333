@@ -444,9 +444,7 @@ static int WriteDocidToDocnameFn(FILE *f, IndexFileOffset_t offset,
   // fwrite() the file name.  We don't write the null-terminator from the
   // string, just the characters, since we've already written a length
   // field for the string.
-  // if (fseek(f, offset + sizeof(DoctableElementHeader), SEEK_SET) != 0) {
-  //   return kFailedWrite;
-  // }
+
   if (fwrite(filename, sizeof(char), file_name_bytes, f) != file_name_bytes) {
     return kFailedWrite;
   }
