@@ -79,7 +79,7 @@ HashTableReader::LookupElementPositions(HTKey_t hash_key) const {
   // correct order (i.e., append to the end of the list).
   fseek(file_, bucket_rec.position, SEEK_SET);
   // push to the back of the list one position by on position
-  for (size_t i = 0; i < bucket_rec.chain_num_elements; i++) {
+  for (int32_t i = 0; i < bucket_rec.chain_num_elements; i++) {
     // don't forget we have this class that can wrap element position
     // so that we can call ToHoastFormat.
     ElementPositionRecord elementPosition;

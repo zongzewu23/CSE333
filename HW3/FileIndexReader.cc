@@ -100,7 +100,7 @@ FileIndexReader::FileIndexReader(const string &file_name,
 
        // read the file buf by buf, not byte-by-byte
       int32_t bytes_read = fread(buf, sizeof(uint8_t), kBufSize, file_);
-      for (size_t i = 0; i < bytes_read; i++) {
+      for (int32_t i = 0; i < bytes_read; i++) {
         // add the uint8_t into the crc_obj, here is byte-by-byte tho
         crc_obj.FoldByteIntoCRC(buf[i]);
       }

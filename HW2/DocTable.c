@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libhw1/CSE333.h"
-#include "libhw1/HashTable.h"
+#include "../HW1/CSE333.h"
+#include "../HW1/HashTable.h"
 
 #define HASHTABLE_INITIAL_NUM_BUCKETS 2
 

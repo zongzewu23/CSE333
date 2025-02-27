@@ -12,8 +12,8 @@
 #ifndef HW2_FILEPARSER_H_
 #define HW2_FILEPARSER_H_
 
-#include "libhw1/LinkedList.h"
-#include "libhw1/HashTable.h"
+#include "../HW1/LinkedList.h"
+#include "../HW1/HashTable.h"
 
 // Reads the full contents of "file_name" into memory, malloc'ing space for
 // its contents and returning a pointer to the allocated memory.  No special

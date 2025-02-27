@@ -25,7 +25,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "libhw1/CSE333.h"
+#include "../HW1/CSE333.h"
 #include "./MemIndex.h"
 
 

@@ -17,7 +17,7 @@
 
 extern "C" {
   #include "./MemIndex.h"
-  #include "libhw1/LinkedList.h"
+  #include "../HW1/LinkedList.h"
   #include "./CrawlFileTree.h"
   #include "./DocTable.h"
 }

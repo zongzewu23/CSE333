@@ -20,7 +20,7 @@
 
 #include <errno.h>
 
-#include "libhw1/CSE333.h"
+#include "../HW1/CSE333.h"
 #include "./CrawlFileTree.h"
 #include "./DocTable.h"
 #include "./MemIndex.h"

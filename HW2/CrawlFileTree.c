@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libhw1/CSE333.h"
+#include "../HW1/CSE333.h"
 #include "./DocTable.h"
 #include "./FileParser.h"
 

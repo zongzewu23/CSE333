@@ -23,14 +23,6 @@ extern "C" {
 #include "./LayoutStructs.h"
 #include "./Utils.h"
 
-//!!!!!!!!!!!!!!! headers that should not exist, remove remove remove  
-#include <iostream>
-using std::cout;
-using std::endl;
-//!!!!!!!!!!!!!!!!!debug remove remove remove remove
-
-
-
 
 namespace hw3 {
 //////////////////////////////////////////////////////////////////////////////
@@ -188,12 +180,15 @@ int WriteIndex(MemIndex *mi, DocTable *dt, const char *file_name) {
 
   // STEP 1.
   // Write the memindex.
+  // call WriteMemIndex to write the MemIndex into the file
   int mi_bytes = WriteMemIndex(f, mi, cur_pos);
   if (mi_bytes == kFailedWrite) {
+    // failed on writing the memIndex, so close the file
     fclose(f);
     unlink(file_name);
     return kFailedWrite;
   }
+  // update current position
   cur_pos += mi_bytes;
 
 
@@ -205,8 +200,6 @@ int WriteIndex(MemIndex *mi, DocTable *dt, const char *file_name) {
     unlink(file_name);
     return kFailedWrite;
   }
-  
-
 
   // Clean up and return the total amount written.
   fclose(f);
@@ -243,15 +236,19 @@ static int WriteHeader(FILE *f, int doctable_bytes, int memidx_bytes) {
   // Seek to the start of the doctable.
   CRC32 crc;
 
+  // seek to the start of the doc "payload"
   fseek(f, sizeof(IndexFileHeader), SEEK_SET);
 
   u_int8_t buffer[4096];
   size_t bytes_read;
+  // checkSum checks the area from the begin of doctable to the end or memidx
   size_t bytes_to_read = doctable_bytes + memidx_bytes;
 
+  // while there is still bytes to read, read to the buffer first then
+  // fold it into crc byte by byte
   while (bytes_to_read > 0 &&
           (bytes_read = fread(buffer, 1, sizeof(buffer), f)) > 0) {
-      for (int i = 0; i < bytes_read; i++) {
+      for (size_t i = 0; i < bytes_read; i++) {
         crc.FoldByteIntoCRC(buffer[i]);
       }
       bytes_to_read -= bytes_read;
@@ -310,18 +307,23 @@ static int WriteHashTable(FILE *f, IndexFileOffset_t offset, HashTable *ht,
   // bucket, but you won't write a bucket.
   for (int i = 0; i < ht->num_buckets; i++) {
     // STEP 4.
+    // obtain the lenght of the chain by using iterator
     int32_t chain_length =
             static_cast<int32_t> (LinkedList_NumElements(ht->buckets[i]));
 
+    // write the HT Bucket record into the file
     if (WriteHTBucketRecord(f, record_pos, chain_length, bucket_pos) < 0) {
       return kFailedWrite;
     }
+    // update record postition
     record_pos += sizeof(BucketRecord);
 
+    // write the bucket into the file start from bucket_pos
     int bucket_increment =  WriteHTBucket(f, bucket_pos, ht->buckets[i], fn);
     if (bucket_increment < 0) {
       return kFailedWrite;
     }
+    // update the bucket position
     bucket_pos += bucket_increment;
   }
 
@@ -385,8 +387,10 @@ static int WriteHTBucket(FILE *f, IndexFileOffset_t offset, LinkedList *li,
       LLIterator_Free(it);
       return kFailedWrite;
     }
+    // create a EPR instance with the element_pos as its position field
     ElementPositionRecord ele_rec(element_pos);
     ele_rec.ToDiskFormat();
+    // write it into the file
     if (fwrite(&ele_rec, sizeof(ElementPositionRecord), 1, f) != 1) {
       LLIterator_Free(it);
       return kFailedWrite;
@@ -394,9 +398,11 @@ static int WriteHTBucket(FILE *f, IndexFileOffset_t offset, LinkedList *li,
 
     // STEP 8.
     // Write the element itself, using fn.
+    // obtain the kv value using return paramenter
     HTKeyValue_t *kv;
-    LLIterator_Get(it, (LLPayload_t *)&kv);
+    LLIterator_Get(it, reinterpret_cast<LLPayload_t *>(&kv));
 
+    // write the element using fn
     int bytes_written = fn(f, element_pos, kv);
     if (bytes_written < 0) {
       LLIterator_Free(it);
@@ -424,7 +430,9 @@ static int WriteDocidToDocnameFn(FILE *f, IndexFileOffset_t offset,
                                  HTKeyValue_t *kv) {
   // STEP 9.
   // Determine the file name length
+  // obtain the filename
   const char *filename = static_cast<const char*>(kv->value);
+  // calculate the length of the filename
   int16_t file_name_bytes = (int16_t)strlen(filename);
 
   // fwrite() the docid from "kv".  Remember to convert to
@@ -445,13 +453,14 @@ static int WriteDocidToDocnameFn(FILE *f, IndexFileOffset_t offset,
   // string, just the characters, since we've already written a length
   // field for the string.
 
-  if (fwrite(filename, sizeof(char), file_name_bytes, f) != file_name_bytes) {
+  if (fwrite(filename, sizeof(char), file_name_bytes, f) !=
+  static_cast<size_t>(file_name_bytes)) {  // cast the f_n_b so no warning
     return kFailedWrite;
   }
 
   // STEP 11.
   // Calculate and return the total amount written.
-  return file_name_bytes + sizeof(DoctableElementHeader);  // you may need to change this return value
+  return file_name_bytes + sizeof(DoctableElementHeader);
 }
 
 // This write_element_fn is used to write a DocID + position list
@@ -473,11 +482,14 @@ static int WriteDocIDToPositionListFn(FILE *f,
   // STEP 12.
   // Write the header, in disk format.
   // You'll need to fseek() to the right location in the file.
+  // initialize the header with obtained doc_id and num_positions
   DocIDElementHeader header(doc_id, num_positions);
-  header.ToDiskFormat();
+  header.ToDiskFormat();  // to disk format
+  // seek to the right place since we are in a new function
   if (fseek(f, offset, SEEK_SET) != 0) {
     return kFailedWrite;
   }
+  // write the header into the file
   if (fwrite(&header, sizeof(DocIDElementHeader), 1, f) != 1) {
     return kFailedWrite;
   }
@@ -495,10 +507,14 @@ static int WriteDocIDToPositionListFn(FILE *f,
 
     // STEP 14.
     // Truncate to 32 bits, then convert it to network order and write it out.
+    // Truncate pointer to 32 bits by casting to uintptr_t and masking
     DocPositionOffset_t truncate = static_cast<DocPositionOffset_t>(
-      reinterpret_cast<uintptr_t>(payload) & 0xFFFFFFFF
-    );
+        reinterpret_cast<uintptr_t>(payload) & 0xFFFFFFFF);
+
+    // Create a DocIDElementPosition object with the truncated value
     position = DocIDElementPosition(truncate);
+
+    // Convert position to disk format (likely for serialization)
     position.ToDiskFormat();
 
   // Write the BucketRecord.
@@ -517,7 +533,8 @@ static int WriteDocIDToPositionListFn(FILE *f,
   // Calculate and return the total amount of data written.
 
 
-  return num_positions*sizeof(DocIDElementPosition) + sizeof(DocIDElementHeader);
+  return num_positions*sizeof(DocIDElementPosition) +
+                                sizeof(DocIDElementHeader);
 }
 
 // This write_element_fn is used to write a WordPostings
@@ -533,7 +550,8 @@ static int WriteWordToPostingsFn(FILE *f,
 
   // STEP 16.
   // Prepare the wordlen field.
-  int16_t word_bytes = strlen(wp->word);
+  // explictly cast the lenght from size_t to int16_t
+  int16_t word_bytes = static_cast<int16_t>(strlen(wp->word));
 
   // Write the nested DocID->positions hashtable (i.e., the "docID
   // table" element in the diagrams).  Use WriteHashTable() to do it,
@@ -570,6 +588,6 @@ static int WriteWordToPostingsFn(FILE *f,
 
   // STEP 19.
   // Calculate and return the total amount of data written.
-  return sizeof(WordPostingsHeader) + word_bytes + ht_bytes;  // you may need to change this return value
+  return sizeof(WordPostingsHeader) + word_bytes + ht_bytes;
 }
 }  // namespace hw3

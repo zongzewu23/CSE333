@@ -17,9 +17,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "libhw1/CSE333.h"
-#include "libhw1/HashTable.h"
-#include "libhw1/LinkedList.h"
+#include "../HW1/CSE333.h"
+#include "../HW1/HashTable.h"
+#include "../HW1/LinkedList.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////
