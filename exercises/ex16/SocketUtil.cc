@@ -127,8 +127,6 @@ void HandleClient(int c_fd, struct sockaddr *addr, size_t addrlen,
 
     // fwrite the bytes in the clientbuf into the stdout
     fwrite(clientbuf, 1, res, stdout);
-    // immediately fresh the buffer, ensure the data is written directly
-    fflush(stdout);
   }
 
   // close the client fd
