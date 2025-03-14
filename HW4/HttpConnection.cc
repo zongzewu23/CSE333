@@ -121,7 +121,7 @@ HttpRequest HttpConnection::ParseRequest(const string &request) const {
   boost::split(lines, request, boost::is_any_of("\r\n"));
 
   // got some lines to process
-  if (!lines.empty()){
+  if (!lines.empty()) {
     // split the first line to parts by white space
     vector<string> first_line;
     boost::split(first_line, lines[0], boost::is_any_of(" "));
@@ -163,7 +163,6 @@ HttpRequest HttpConnection::ParseRequest(const string &request) const {
         // add this header to the header Map
         req.AddHeader(header_name, header_value);
       }
-
     }
   }
 

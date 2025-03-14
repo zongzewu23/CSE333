@@ -16,14 +16,14 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <limits.h>
+#include <limits.h>          // PATH_MAX
 #include <netdb.h>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string.hpp>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdlib.h>          // realpath()
+#include <string.h>          // strcmp strncmp strlen
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -58,9 +58,31 @@ bool IsPathSafe(const string &root_dir, const string &test_file) {
   // path of a file.)
 
   // STEP 1
+  // get the abs path for both of the root_dir and test_file
+  char abs_file_path[PATH_MAX];
+  char abs_dir_path[PATH_MAX];
 
+  // using realpath() to find the abs path
+  if (realpath(test_file.c_str(), abs_file_path) == nullptr ||
+        realpath(root_dir.c_str(), abs_dir_path) == nullptr) {
+    return false;
+  }
 
-  return true;  // you may want to change this return value
+  // make sure the root_dir ends with a /
+  size_t dir_len = strlen(abs_dir_path);
+  if (dir_len > 0 && abs_dir_path[dir_len - 1] != '/') {
+    abs_dir_path[dir_len] = '/';
+    abs_dir_path[dir_len + 1] = '\0';
+    dir_len += 1;
+  }
+
+  // abs_file_path contains root_dir, then file safe
+  if (strncmp(abs_dir_path, abs_file_path, dir_len) == 0) {
+    return true;
+  }
+
+  // abs_file_path does not contain root_dir, not safe
+  return false;
 }
 
 string EscapeHtml(const string &from) {
@@ -74,7 +96,23 @@ string EscapeHtml(const string &from) {
   // looked up online.
 
   // STEP 2
+  // use a map to store the symbols that should be escaped and their code
+  // don't neccessarily to use a map but just because
+  // it's included in the using std::map
+  map<string, string> escape_map = {
+    {"<", "&lt;"},
+    {">", "&gt;"},
+    {"\"", "&quot;"},
+    {"'", "&apos;"}
+  };
 
+  // otherwise it will make those symbols to &xxx; and then &amp;xxx;
+  replace_all(ret, "&", "&amp;");
+
+  // now we can safely replace all other symbols
+  for (const auto &pair : escape_map) {
+    replace_all(ret , pair.first, pair.second);
+  }
 
   return ret;
 }

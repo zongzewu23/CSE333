@@ -204,9 +204,11 @@ bool ServerSocket::Accept(int *const accepted_fd,
   }
   *client_dns_name = client_dns;
 
+  // initialize a char[] to store server's dns
   char server_dns[MAX_DNS];
   server_dns[0] = '\0';
 
+  // if the sock_family is IPv
   if (sock_family_ == AF_INET) {
     struct sockaddr_in srvr;
     socklen_t srvrlen = sizeof(srvr);
@@ -214,17 +216,18 @@ bool ServerSocket::Accept(int *const accepted_fd,
     getsockname(client_fd, (struct sockaddr*) &srvr, &srvrlen);
     inet_ntop(AF_INET, &srvr.sin_addr, addrbuf, INET_ADDRSTRLEN);
     getnameinfo((const struct sockaddr *) &srvr, srvrlen,
-                              server_dns, MAX_DNS, nullptr,0 ,0);
+                              server_dns, MAX_DNS, nullptr, 0, 0);
+    // assign the server dns and address to the return parameter
     *server_dns_name = server_dns;
     *server_addr = addrbuf;
-  } else {
+  } else {  // Ipv6
     struct sockaddr_in6 srvr;
     socklen_t srvrlen = sizeof(srvr);
     char addrbuf[INET6_ADDRSTRLEN];
     getsockname(client_fd, (struct sockaddr *) &srvr, &srvrlen);
     inet_ntop(AF_INET6, &srvr.sin6_addr, addrbuf, INET6_ADDRSTRLEN);
     getnameinfo((const struct sockaddr *) &srvr, srvrlen,
-                              server_dns, MAX_DNS, nullptr,0 ,0);
+                              server_dns, MAX_DNS, nullptr, 0, 0);
     *server_dns_name = server_dns;
     *server_addr = addrbuf;
   }

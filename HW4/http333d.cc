@@ -29,6 +29,8 @@ using std::endl;
 using std::list;
 using std::string;
 
+#define INDICES_START 3
+
 // Print out program usage, and exit() with EXIT_FAILURE.
 static void Usage(char *prog_name);
 
@@ -101,5 +103,42 @@ static void GetPortAndPath(int argc,
   // - You have at least 1 index, and all indices are readable files
 
   // STEP 1:
+  // check if we have enough arguments
+  if (argc < 4) {
+    Usage(argv[0]);
+  }
+
+  // parse port number
+  int32_t port_num = strtol(argv[1], NULL, 10);
+  if (port_num < 0 || port_num > UINT16_MAX) {
+    cerr << "Invalid Port Number" << endl;
+    Usage(argv[0]);
+  }
+  *port = static_cast<uint16_t>(port_num);
+
+  // parse directory
+  *path = argv[2];
+  struct stat dir_stat;
+  if (stat(path->c_str(), &dir_stat) != 0 || !S_ISDIR(dir_stat.st_mode)) {
+    cerr << "Not a valid path" << *path << endl;
+    Usage(argv[0]);
+  }
+
+  // parse all of the indices
+  for (int i = INDICES_START; i < argc; i++) {
+    struct stat index_stat;
+    if (stat(argv[i], &index_stat) != 0 || !S_ISREG(index_stat.st_mode)) {
+      cerr << "Not a regular file " << argv[i] << endl;
+      Usage(argv[0]);
+    }
+    indices->push_back(argv[i]);
+  }
+
+  // check if we have at least one index, technically no need to check because
+  // the previous check ensured there must be a readble index.
+  if (indices->empty()) {
+    cerr << "Not enough indices" << endl;
+    Usage(argv[0]);
+  }
 }
 

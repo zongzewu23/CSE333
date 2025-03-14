@@ -52,7 +52,7 @@ bool FileReader::ReadFile(string *const contents) {
   }
 
   int size;  // pass this in to ReadFileToString to get the size of the content
-  std::unique_ptr<char,MallocDeleter<char>>
+  std::unique_ptr<char, MallocDeleter<char>>
                             str(ReadFileToString(full_file.c_str(), &size));
 
   if (!str) {  // check if the str is nullptr

@@ -24,6 +24,8 @@
 #include "./HttpServer.h"
 #include "./libhw3/QueryProcessor.h"
 
+#define END_HTML "</body></html>"
+
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -58,7 +60,12 @@ static const char *kThreegleStr =
   "<input type=\"text\" size=30 name=\"terms\" />\n"
   "<input type=\"submit\" value=\"Search\" />\n"
   "</form>\n"
-  "</center><p>\n";
+  "</center><p></p>\n";
+
+  /*
+  <p></p></body></html>
+
+   */
 
 // This is the function that threads are dispatched into
 // in order to process new client connections.
@@ -123,7 +130,7 @@ bool HttpServer::Run(void) {
       break;
     }
 
-    // The accept succeeded; dispatch it to the workers.
+    // The accept suscceeded; dispatch it to the workers.
     if (!tp_->Dispatch(hst)) {
       delete hst;
       break;
@@ -173,12 +180,30 @@ static void HttpServer_ThrFn(ThreadPool::Task *t) {
   // this function.
 
   // STEP 1:
-  HttpRequest rq;  // you should probably initialize this somehow
+  HttpRequest rq;
+  HttpConnection connection(hst->client_fd);  // create a connection instance
   while (!hst->server_->IsShuttingDown()) {
+    // initialize the rq
+    if (!connection.GetNextRequest(&rq)) {
+      // cerr << "GetNextRequest() failed for " << "client "
+      //     << hst->c_dns << ":" << hst->c_port << " "
+      //     << "(IP address " << hst->c_addr << ")" << endl;
+      break;  // break if connection from this client drop, but Server is alive
+    }
 
     // If the client requested the server to shut down, do so.
     if (StringStartsWith(rq.uri(), "/quitquitquit")) {
       hst->server_->BeginShutdown();
+      break;
+    }
+
+    // get response
+    HttpResponse rp = ProcessRequest(rq, hst->base_dir, *(hst->indices));
+    // write response
+    if (!connection.WriteResponse(rp)) {
+      // cerr << "WriteResponse() failed for " << "client "
+      //     << hst->c_dns << ":" << hst->c_port << " "
+      //     << "(IP address " << hst->c_addr << ")" << endl;
       break;
     }
   }
@@ -226,8 +251,67 @@ static HttpResponse ProcessFileRequest(const string &uri,
   string file_name = "";
 
   // STEP 2:
+  // parse uri
+  URLParser parsed_uri;
+  parsed_uri.Parse(uri);
 
+  // get file name(also path)
+  file_name = parsed_uri.path();
+  // confirm it's asking for file that is from /static
+  if (StringStartsWith(file_name, "/static/")) {
+    file_name = file_name.substr(8);
+  } else {
+    ret.set_protocol("HTTP/1.1");
+    ret.set_response_code(400);
+    ret.set_message("Bad Request");
+    return ret;
+  }
 
+  // file reader object
+  FileReader reader(base_dir, file_name);
+  string content;
+  // read file into the content
+  if (reader.ReadFile(&content)) {
+    // all handled file type stored un this map
+    static const map<string, string> content_types = {
+      {".html", "text/html"},
+      {".htm", "text/html"},
+      {".txt", "text/plain"},
+      {".css", "text/css"},
+      {".js", "application/javascript"},
+      {".json", "application/json"},
+      {".xml", "application/xml"},
+      {".jpg", "image/jpeg"},
+      {".jpeg", "image/jpeg"},
+      {".png", "image/png"},
+      {".gif", "image/gif"},
+      {".svg", "image/svg+xml"},
+      {".ico", "image/x-icon"},
+      {".pdf", "application/pdf"},
+      {".zip", "application/zip"},
+    };
+
+    // get the file type(extension)
+    string ext = "";
+    size_t find_dot = file_name.find_last_of('.');
+    if (find_dot != std::string::npos) {
+      ext = file_name.substr(find_dot);
+    }
+    auto it = content_types.find(ext);
+    string content_type = "";
+    if (it != content_types.end()) {
+      content_type = it->second;
+    } else {
+      content_type = "text/plain";  // default file type
+    }
+
+    ret.set_protocol("HTTP/1.1");
+    ret.set_response_code(200);
+    ret.set_message("OK");
+    ret.set_content_type(content_type);
+    ret.AppendToBody(content);
+    return ret;
+  }
   // If you couldn't find the file, return an HTTP 404 error.
   ret.set_protocol("HTTP/1.1");
   ret.set_response_code(404);
@@ -242,6 +326,8 @@ static HttpResponse ProcessQueryRequest(const string &uri,
                                         const list<string> &indices,
                                         const string &base_dir) {
   // The response we're building up.
+
+
   HttpResponse ret;
 
   // Your job here is to figure out how to present the user with
@@ -265,9 +351,91 @@ static HttpResponse ProcessQueryRequest(const string &uri,
   //    tags!)
 
   // STEP 3:
+  URLParser parsed_uri;
+  // parse uri
+  parsed_uri.Parse(uri);
 
+  // get the terms from parsed uri's args field
+  string query = parsed_uri.args()["terms"];
+  if (query.empty()) {  // query nothing back to main page
+    // Also handle cases where user inter the entry url for the website
+    // Also handle cases where user enters some none sense uri
+    ret.set_protocol("HTTP/1.1");
+    ret.set_response_code(200);
+    ret.set_message("OK");
+    ret.AppendToBody(kThreegleStr);
+    ret.AppendToBody(END_HTML);
+    return ret;
+  }
+
+  // make the query word string lower cases
+  boost::algorithm::to_lower(query);
+  // parse all the queried words into query_list
+  std::vector<string> query_list;
+  boost::split(query_list, query, boost::is_any_of(" "));
+
+  // trim every words in the query_list
+  for (auto& word : query_list) {
+    StringTrim(&word);
+  }
+
+  // process query
+  hw3::QueryProcessor query_processor(indices , false);
+  // store the query result in to results
+  std::vector<hw3::QueryProcessor::QueryResult>
+                results = query_processor.ProcessQuery(query_list);
+
+  // set basic header
+  ret.set_protocol("HTTP/1.1");
+  ret.set_response_code(200);
+  ret.set_message("OK");
+  ret.set_content_type("text/html");
+  ret.AppendToBody(kThreegleStr);
+  // no query result
+  if (results.empty()) {
+    ret.AppendToBody("<p><br>\n"
+                     " No results found for \n"
+                     "<b>" + EscapeHtml(query) + "</b>\n"
+                     "</p><p></p>\n");
+    ret.AppendToBody(END_HTML);
+    return ret;
+  } else {  // got a result list
+    // get number of results
+    string res_num = std::to_string(results.size());
+    stringstream ss1;
+    // # results found for XXX
+    ss1 << "<p><br>\n"
+       << res_num
+       << " results found for \n<b>"
+       << EscapeHtml(query)
+       << "</b>\n</p><p></p>\n";
+
+    // this is the result list represented on the website
+    stringstream ss2;
+    ss2 << "<ul>\n";
+    for (const auto& result : results) {
+      string static_path = "/static/" + result.document_name;
+      ss2 << "<li>\n"
+      << "<a href=\""
+      << EscapeHtml(static_path)
+      << "\">"
+      << EscapeHtml(result.document_name) << "</a>\n"
+      << " [" << result.rank << "]\n<br>\n"
+      << "</li>\n";
+    }
+    ss2 << "</ul>\n";
+
+
+    // append the html code
+    ret.AppendToBody(ss1.str());
+    ret.AppendToBody(ss2.str());
+  }
+
+  // Finishing the HTML code
+  ret.AppendToBody(END_HTML);
   return ret;
 }
+
 
 static bool StringStartsWith(const string &s, const string &prefix) {
   return s.substr(0, prefix.size()) == prefix;
